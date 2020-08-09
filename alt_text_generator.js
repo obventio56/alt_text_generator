@@ -3,15 +3,25 @@
 async function generate_alt_text() {
 
   const fs = require('fs');
+  const path = require("path");
+  const createReadStream = require('fs').createReadStream
+  const sleep = require('util').promisify(setTimeout);
+  const ComputerVisionClient = require('@azure/cognitiveservices-computervision').ComputerVisionClient;
+  const ApiKeyCredentials = require('@azure/ms-rest-js').ApiKeyCredentials;
   const request = require('request');
   const readline = require('readline');
   const {google} = require('googleapis');
-  const vision = require('@google-cloud/vision');
   const { GoogleAuth } = require('google-auth-library');
   const sheets = google.sheets('v4');
   const spreadsheetId = "1ILUI2XVJImaERK-RFtOZg0RDVpq1lLhG72rQA79nX8E";
 
   const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
+
+  let key = process.env['COMPUTER_VISION_SUBSCRIPTION_KEY'];
+  let endpoint = process.env['COMPUTER_VISION_ENDPOINT']
+  if (!key) { throw new Error('Set your environment variables for your subscription key and endpoint.'); }
+  let computerVisionClient = new ComputerVisionClient(
+    new ApiKeyCredentials({inHeader: {'Ocp-Apim-Subscription-Key': key}}), endpoint);
 
   function download(url, localPath, callback) {
         const options = {
@@ -50,14 +60,21 @@ async function generate_alt_text() {
     return res;
   };
 
+
+  
   const sheetName = "Sheet1!B:B";
 
   const auth = await getAuthToken();
   const response = await getSpreadSheetValues({ spreadsheetId, auth, sheetName});
   const url_values = response.data.values.slice(1, response.data.values.length);
   console.log(url_values)
-  url_values.forEach(async function(el, index) {
-    
+  url_values.forEach(async function(describeURL, index) {
+
+    console.log('Analyzing URL image to describe...', describeURL.split('/').pop());
+    var caption = (await computerVisionClient.describeImage(describeURL)).captions[0];
+    console.log(`This may be ${caption.text} (${caption.confidence.toFixed(2)} confidence)`);
+
+    /*
     download(el[0], 'tempimage' + index, async function() {
         console.log(index)
         console.log(el[0])
@@ -82,6 +99,7 @@ async function generate_alt_text() {
         console.log(writeRange)
         await writeSpreadSheetValues({ spreadsheetId, auth, writeRange, resource});
     }); 
+    */
 });
 
 
