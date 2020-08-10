@@ -1,6 +1,8 @@
 'use strict';
 
 const async = require('async');
+const express = require('express');
+var url = require("url");
 const fs = require('fs');
 const path = require("path");
 const request = require('request');
@@ -11,10 +13,12 @@ const ApiKeyCredentials = require('@azure/ms-rest-js').ApiKeyCredentials;
 const {google} = require('googleapis');
 const { GoogleAuth } = require('google-auth-library');
 const sheets = google.sheets('v4');
-const spreadsheetId = "1ILUI2XVJImaERK-RFtOZg0RDVpq1lLhG72rQA79nX8E";
 const sheetName = "Sheet1!B:B";
 
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
+
+const hostname = '127.0.0.1';
+const port = 3000;
 
 async function getAuthToken() {
     const auth = new GoogleAuth({
@@ -54,7 +58,7 @@ async function writeSpreadSheetValues({spreadsheetId, auth, writeRange, resource
 };
 
 
-function computerVision() {
+function computerVision(spreadsheetId) {
     async.series([
       async function () {
         let key = process.env['COMPUTER_VISION_SUBSCRIPTION_KEY'];
@@ -120,4 +124,21 @@ function computerVision() {
   });
 }
 
-computerVision();
+const app = express()
+app.use(express.json());  
+app.use(express.urlencoded());
+
+const PORT = 3000;
+app.listen(PORT, () => console.log(`Express server currently running on port ${PORT}`));
+
+app.get(`/`, (request, response) => {
+    response.sendFile(path.join(__dirname+'/index.html'));
+  })
+
+app.post(`/analyze_spreadsheet`, (request, response) => {
+    var spreadsheetId = request.body.spreadsheetURL.split("/")[5];
+    console.log(spreadsheetId);  
+
+    computerVision(spreadsheetId);
+    response.send("Success!");
+  })
